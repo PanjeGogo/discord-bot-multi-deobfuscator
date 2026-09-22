@@ -20,3 +20,16 @@ Pterodactyl:
 5. `bash start.sh`
 
 Gemini API quotas/rate limits still apply.
+
+
+## Local Luraph engine
+
+The bot now runs `engines/luraph_vm.py` before Gemini for the Luraph v14 profile.
+It is deliberately non-executing: it performs bounded constant folding/string
+concatenation and records VM-like instruction indicators. If it changes the
+source, the bot checkpoints that result and skips the Gemini request for that
+pass.
+
+This is the safe first layer of the planned Luraph VM emulator. A full
+Luau/Roblox runtime is intentionally not embedded because executing arbitrary
+uploaded Lua/Luau would defeat the bot's sandbox boundary.
