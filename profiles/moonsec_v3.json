@@ -1,0 +1,1 @@
+{"name":"MoonSec V3","features":["encrypted strings","custom VM patterns","MoonSec macro markers when present"],"note":"Markers may disappear from already-obfuscated output."}
