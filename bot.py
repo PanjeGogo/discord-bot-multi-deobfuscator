@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import datetime,timezone
 from discord.ext import commands
 from dotenv import load_dotenv
-from engines.luraph_vm import analyze_and_rewrite
+from engines import analyze_and_rewrite
 
 load_dotenv()
 BASE=Path(__file__).resolve().parent; TEMP=BASE/'temp'; JOBS=TEMP/'jobs'; LOGS=TEMP/'logs'; PROGRESS=TEMP/'progress.json'
