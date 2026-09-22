@@ -1,0 +1,1 @@
+{"name":"Generic Lua","passes":["constants","control flow","VM-like structures","cleanup"]}
