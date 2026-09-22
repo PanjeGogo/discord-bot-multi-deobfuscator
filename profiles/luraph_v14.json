@@ -1,0 +1,1 @@
+{"name":"Luraph v14.x","features":["custom VM","control-flow flattening","binary-tree-like dispatch","SoA-style instruction storage"],"note":"Heuristic family profile; not proof of exact patch version."}
