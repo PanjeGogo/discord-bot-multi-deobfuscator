@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import datetime,timezone
 from discord.ext import commands
 from dotenv import load_dotenv
+from engines.luraph_vm import analyze_and_rewrite
 
 load_dotenv()
 BASE=Path(__file__).resolve().parent; TEMP=BASE/'temp'; JOBS=TEMP/'jobs'; LOGS=TEMP/'logs'; PROGRESS=TEMP/'progress.json'
@@ -88,6 +89,16 @@ async def process(msg,jid):
             for n in range(state['pass']+1,state['max_passes']+1):
                 if state.get('cancel_requested'): raise asyncio.CancelledError
                 state.update(status='processing',pass=n,message=f'🧠 Gemini reconstruction — pass {n}/{state["max_passes"]}'); await save_state(state); await msg.edit(embed=embed(state),view=view(jid))
+                # Local non-executing pass: cheap Luraph rewrites before Gemini.
+                local=analyze_and_rewrite(src,state['family'])
+                if local.changed:
+                    (d/'previous.lua').write_text(src,encoding='utf8')
+                    (d/f'local_{n:03d}.lua').write_text(local.source,encoding='utf8')
+                    (d/'current.lua').write_text(local.source,encoding='utf8')
+                    src=local.source; state['pass']=n; state['local_steps']=state.get('local_steps',0)+1
+                    state['message']='⚙️ Local Luraph engine: '+('; '.join(local.notes)[:700])
+                    await save_state(state); await msg.edit(embed=embed(state),view=view(jid))
+                    continue
                 prof=profile(state['family']); prompt=f"Detected profile: {state['family']}\nProfile: {json.dumps(prof)[:14000]}\nEvidence: {json.dumps(state.get('evidence',[]))}\nPass {n}. Deobfuscate the CURRENT Lua statically. Preserve behavior. Remove only justified obfuscation/junk. Return ONLY complete Lua source.\n\nCURRENT SOURCE:\n{src}"
                 state['requests']+=1; await save_state(state); new=clean(await ask(session,prompt))
                 if len(new)<20: raise RuntimeError('Gemini returned source that is too short.')
@@ -114,7 +125,7 @@ async def deobfus(ctx):
     if len(raw)>MAX_FILE_BYTES: return await ctx.reply('❌ File terlalu besar.')
     src=raw.decode('utf8','replace'); family,scores,ev=detect(src); jid=uuid.uuid4().hex[:12]; d=JOBS/jid; d.mkdir(parents=True)
     (d/'input.lua').write_text(src,encoding='utf8'); (d/'current.lua').write_text(src,encoding='utf8')
-    s={'version':1,'job_id':jid,'message_id':ctx.message.id,'channel_id':ctx.channel.id,'guild_id':ctx.guild.id if ctx.guild else None,'user_id':ctx.author.id,'filename':a.filename,'family':family,'scores':scores,'evidence':ev.get(family,[]),'status':'processing','message':'📥 File diterima; fingerprint lokal selesai.','pass':0,'max_passes':MAX_PASSES,'requests':0,'started_at':now(),'updated_at':now(),'cancel_requested':False,'cancelled_by':None,'result_path':None,'error':None}
+    s={'version':1,'job_id':jid,'message_id':ctx.message.id,'channel_id':ctx.channel.id,'guild_id':ctx.guild.id if ctx.guild else None,'user_id':ctx.author.id,'filename':a.filename,'family':family,'scores':scores,'evidence':ev.get(family,[]),'status':'processing','message':'📥 File diterima; fingerprint lokal selesai.','pass':0,'max_passes':MAX_PASSES,'requests':0,'local_steps':0,'started_at':now(),'updated_at':now(),'cancel_requested':False,'cancelled_by':None,'result_path':None,'error':None}
     await save_state(s); msg=await ctx.reply(embed=embed(s),view=view(jid)); s['status_message_id']=msg.id; await save_state(s); running[jid]=asyncio.create_task(process(msg,jid))
 
 @deobfus.error
